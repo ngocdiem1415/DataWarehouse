@@ -24,14 +24,15 @@ public class GiavangScraper {
                     .timeout(TIMEOUT_MS)
                     .get();
             String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
-            String filePath = "/home/DW/staging/data/giavang_" + currentDate + ".csv";
-//            String filePath = "D:/DataWarehouse/crawl" + currentDate + ".csv";
+//            String filePath = "/home/DW/staging/data/giavang_" + currentDate + ".csv";
+            String filePath = "D:/DataWarehouse/DW-Crawl/data/crawl" + currentDate + ".csv";
+
             try (BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(
                             new FileOutputStream(filePath, true),
                             StandardCharsets.UTF_8
                     ))) {
-                writer.write("Khu vuc, Gia mua, Gia ban, url, timestamp, Trang thai\n");
+                writer.write("Khu vuc, Loai vang, Gia mua, Gia ban, url, timestamp, Trang thai\n");
                 LocalDateTime now = LocalDateTime.now();
                 String location = "";
 

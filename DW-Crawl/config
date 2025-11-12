@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<properties>
+    <entry key="url">https://giavang.org/trong-nuoc/</entry>
+    <entry key="user.agent">Mozilla/5.0 (compatible; MyJavaScraper/1.0; +https://example.com)</entry>
+    <entry key="timeout.ms">60000</entry>
+    <entry key="output.path">D:/DataWarehouse/DW-Crawl/data/</entry>
+    <entry key="db_control">jdbc:mysql://157.245.199.151:3306/control</entry>
+    <entry key="db_mart">jdbc:mysql://157.245.199.151:3306/mart</entry>
+    <entry key="db_warehouse">jdbc:mysql://157.245.199.151:3306/warehouse</entry>
+    <entry key="db_staging">jdbc:mysql://157.245.199.151:3306/staging</entry>
+</properties>
