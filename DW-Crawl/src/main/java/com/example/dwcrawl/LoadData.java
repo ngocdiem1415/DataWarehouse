@@ -17,7 +17,6 @@ public class LoadData {
     public static void main(String[] args) {
 //        String csvFile = "D:\\DataWarehouse\\crawl03112025.csv";
         String csvFile = "/home/DW/staging/data/crawl03112025.csv";
-
 //        LocalDate today = LocalDate.now();
 //        DateTimeFormatter dateFormatter = DateTimeFormatter.ofPattern("ddMMyyyy");
 //        String dateStr = today.format(dateFormatter);
