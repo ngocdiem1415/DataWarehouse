@@ -1,0 +1,40 @@
+Id, Khu vuc, Loai vang, Gia mua, Gia ban, url, timestamp
+1,TP. Hồ Chí Minh,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+2,TP. Hồ Chí Minh,PNJ,148.300,150.300,https://giavang.org/trong-nuoc/pnj/,2025-11-20T21:30:53.662201600
+3,TP. Hồ Chí Minh,DOJI,148.300,150.300,https://giavang.org/trong-nuoc/doji/,2025-11-20T21:30:53.662201600
+4,TP. Hồ Chí Minh,Mi Hồng,149.000,150.300,https://giavang.org/trong-nuoc/mi-hong/,2025-11-20T21:30:53.662201600
+5,TP. Hồ Chí Minh,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+6,Miền Bắc,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+7,Hạ Long,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+8,Hải Phòng,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+9,Miền Trung,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+10,Huế,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+11,Quảng Ngãi,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+12,Nha Trang,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+13,Biên Hòa,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+14,Miền Tây,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+15,Miền Tây,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+16,Bạc Liêu,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+17,Cà Mau,SJC,148.300,150.300,https://giavang.org/trong-nuoc/sjc/,2025-11-20T21:30:53.662201600
+18,Hà Nội,PNJ,148.300,150.300,https://giavang.org/trong-nuoc/pnj/,2025-11-20T21:30:53.662201600
+19,Hà Nội,DOJI,148.300,150.300,https://giavang.org/trong-nuoc/doji/,2025-11-20T21:30:53.662201600
+20,Hà Nội,Bảo Tín Minh Châu,148.800,150.300,https://giavang.org/trong-nuoc/bao-tin-minh-chau/,2025-11-20T21:30:53.662201600
+21,Hà Nội,Bảo Tín Mạnh Hải,148.900,150.300,https://giavang.org/trong-nuoc/bao-tin-manh-hai/,2025-11-20T21:30:53.662201600
+22,Hà Nội,Phú Quý,147.300,150.300,https://giavang.org/trong-nuoc/phu-quy/,2025-11-20T21:30:53.662201600
+23,Đà Nẵng,PNJ,148.300,150.300,https://giavang.org/trong-nuoc/pnj/,2025-11-20T21:30:53.662201600
+24,Đà Nẵng,DOJI,148.300,150.300,https://giavang.org/trong-nuoc/doji/,2025-11-20T21:30:53.662201600
+25,Miền Tây,PNJ,148.300,150.300,https://giavang.org/trong-nuoc/pnj/,2025-11-20T21:30:53.662201600
+26,Tây Nguyên,PNJ,148.300,150.300,https://giavang.org/trong-nuoc/pnj/,2025-11-20T21:30:53.662201600
+27,Đông Nam Bộ,PNJ,148.300,150.300,https://giavang.org/trong-nuoc/pnj/,2025-11-20T21:30:53.662201600
+28,Đông Nam Bộ,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+29,Bắc Ninh,Bảo Tín Mạnh Hải,148.900,150.300,https://giavang.org/trong-nuoc/bao-tin-manh-hai/,2025-11-20T21:30:53.662201600
+30,Hải Dương,Bảo Tín Mạnh Hải,148.900,150.300,https://giavang.org/trong-nuoc/bao-tin-manh-hai/,2025-11-20T21:30:53.662201600
+31,Bến Tre,Mi Hồng,149.000,150.300,https://giavang.org/trong-nuoc/mi-hong/,2025-11-20T21:30:53.662201600
+32,Tiền Giang,Mi Hồng,149.000,150.300,https://giavang.org/trong-nuoc/mi-hong/,2025-11-20T21:30:53.662201600
+33,Mỹ Tho,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+34,Vĩnh Long,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+35,Long Xuyên,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+36,Cần Thơ,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+37,Sa Đéc,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+38,Trà Vinh,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600
+39,Tân An,Ngọc Thẩm,148.300,150.300,https://giavang.org/trong-nuoc/ngoc-tham/,2025-11-20T21:30:53.662201600

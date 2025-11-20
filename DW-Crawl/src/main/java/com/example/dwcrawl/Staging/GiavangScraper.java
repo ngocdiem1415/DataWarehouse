@@ -1,4 +1,4 @@
-package com.example.dwcrawl;
+package com.example.dwcrawl.Staging;
 
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
@@ -13,29 +13,50 @@ import java.time.format.DateTimeFormatter;
 import java.util.concurrent.ThreadLocalRandom;
 
 public class GiavangScraper {
-    private static final String URL = "https://giavang.org/trong-nuoc/";
-    private static final String USER_AGENT = "Mozilla/5.0 (compatible; MyJavaScraper/1.0; +https://example.com)";
-    private static final int TIMEOUT_MS = 60_000;
+    private String URL;
+    private String USER_AGENT;
+    private int TIMEOUT_MS;
+    private String outputPath;
+
+    public void loadConfig() {
+        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
+        if (!configFile.exists()) {
+            throw new RuntimeException("Không tìm thấy file config.xml");
+        }
+        try (InputStream input = new FileInputStream(configFile)) {
+            java.util.Properties props = new java.util.Properties();
+            props.loadFromXML(input);
+
+            URL = props.getProperty("url");
+            USER_AGENT = props.getProperty("user.agent");
+            TIMEOUT_MS = Integer.parseInt(props.getProperty("timeout.ms"));
+            outputPath = props.getProperty("output.path");
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi load config.xml: " + e.getMessage(), e);
+        }
+    }
 
     public static void main(String[] args) {
+        GiavangScraper scraper = new GiavangScraper();
+        scraper.loadConfig();
+
         try {
-            Document doc = Jsoup.connect(URL)
-                    .userAgent(USER_AGENT)
-                    .timeout(TIMEOUT_MS)
+            Document doc = Jsoup.connect(scraper.URL)
+                    .userAgent(scraper.USER_AGENT)
+                    .timeout(scraper.TIMEOUT_MS)
                     .get();
             String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
-//            String filePath = "/home/DW/staging/data/giavang_" + currentDate + ".csv";
-            String filePath = "D:/DataWarehouse/DW-Crawl/data/crawl" + currentDate + ".csv";
+            String filePath = scraper.outputPath + currentDate + ".csv";
 
             try (BufferedWriter writer = new BufferedWriter(
                     new OutputStreamWriter(
                             new FileOutputStream(filePath, true),
                             StandardCharsets.UTF_8
                     ))) {
-                writer.write("Khu vuc, Loai vang, Gia mua, Gia ban, url, timestamp, Trang thai\n");
+                writer.write("Id, Khu vuc, Loai vang, Gia mua, Gia ban, url, timestamp\n");
                 LocalDateTime now = LocalDateTime.now();
                 String location = "";
-
+                int id = 1;
                 Elements rows = doc.select("table tbody tr");
                 for (Element row : rows) {
                     Elements cols = row.select("td");
@@ -52,8 +73,9 @@ public class GiavangScraper {
                         String brand = aTag_brand != null ? aTag_brand.text() : "";
                         String mua = cols.get(1).text().trim();
                         String ban = cols.get(2).text().trim();
+
                         writer.write(String.format("%s,%s,%s,%s,%s,%s,%s\n",
-                                location, brand, mua, ban, url, now, "status"));
+                                id++, location, brand, mua, ban, url, now));
                     }
                 }
             }
