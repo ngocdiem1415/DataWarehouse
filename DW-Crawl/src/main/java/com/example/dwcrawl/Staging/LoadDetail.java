@@ -15,9 +15,9 @@ public class LoadDetail {
     private String USER;
     private String PASSWORD;
     private String outputPath;
-    private static final String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
-    private static final String errorFilePath = "D:/DataWarehouse/DW-Crawl/";
-    //    private static final String errorFilePath = "/DW/control/config_error/";
+    private static String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
+//    private static final String errorFilePath = "D:/DataWarehouse/DW-Crawl/";
+    private static final String errorFilePath = "/DW/control/config_error/";
     private String config_file_path;
 
     private static String getRequiredProperty(Properties props, String key, String name) {
@@ -51,8 +51,8 @@ public class LoadDetail {
     }
 
     public void loadConfig() {
-        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
-        //        File configFile = new File(config_file_path);
+//        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
+                File configFile = new File(config_file_path);
 
         // Xuất file .txt báo lỗi ko load được file config.xml
         if (!configFile.exists()) {
@@ -91,15 +91,15 @@ public class LoadDetail {
         LoadDetail load = new LoadDetail();
 
         // 1. Load file config.xml
-//        for (String arg : args) { // Input: config_file_path
-//            if (arg.startsWith("config_file_path=")) {
-//                load.config_file_path = arg.substring("config_file_path=".length()).trim();
-//                System.out.println("Using config file: " + load.config_file_path);
-//            } else if (arg.startsWith("date=")) {
-//                currentDate = arg.substring("date=".length()).trim();
-//                System.out.println("Using specified date: " + currentDate);
-//            }
-//        }
+        for (String arg : args) { // Input: config_file_path
+            if (arg.startsWith("config_file_path=")) {
+                load.config_file_path = arg.substring("config_file_path=".length()).trim();
+                System.out.println("Using config file: " + load.config_file_path);
+            } else if (arg.startsWith("date=")) {
+                currentDate = arg.substring("date=".length()).trim();
+                System.out.println("Using specified date: " + currentDate);
+            }
+        }
         load.loadConfig();
 
         // 3. Kết nối tới database
@@ -107,7 +107,7 @@ public class LoadDetail {
         Connection conn2 = load.connectToControl();
 
         // Xuất file .txt báo lỗi ko thể kết nối đến DB
-        if (conn1 == null || conn2 == null) {
+        if (conn1 == null) {
             File errorConnectDB = new File(errorFilePath + currentDate + "_source-crawl_connectDB-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorConnectDB))) {
                 writer.write("Không thể kết nối tới database: " + load.DB_STAGING);
@@ -116,23 +116,31 @@ public class LoadDetail {
             }
             throw new RuntimeException("Không thể kết nối DB: " + load.DB_STAGING);
         }
+        if (conn2 == null) {
+            File errorConnectDB = new File(errorFilePath + currentDate + "_source-crawl_connectDB-error.txt");
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorConnectDB))) {
+                writer.write("Không thể kết nối tới database: " + load.DB_CONTROL);
+            } catch (IOException ioEx) {
+                ioEx.printStackTrace();
+            }
+            throw new RuntimeException("Không thể kết nối DB: " + load.DB_CONTROL);
+        }
 
-        String check_etl_log_status = "SELECT 1 process_code, status FROM etl_log WHERE process_code = 1 ORDER BY log_id DESC LIMIT 1";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+        LocalDate localDate = LocalDate.parse(currentDate, formatter);
+        String check_etl_log_status =
+                "SELECT 1 process_code, status FROM etl_log " +
+                        "WHERE process_code = 4 AND DATE(run_date) = ? " +
+                        "ORDER BY log_id DESC LIMIT 1";
         PreparedStatement check_etl_log_status_stmt = conn2.prepareStatement(check_etl_log_status);
+        check_etl_log_status_stmt.setDate(1, java.sql.Date.valueOf(localDate));
         ResultSet rs = check_etl_log_status_stmt.executeQuery();
 
-        // Kiểm tra trạng thái process trong bảng etl_log trong DB control
+        // 4. Kiểm tra trạng thái process trong bảng etl_log trong DB control
         if (rs.next()) {
             String status = rs.getString("status");
-            if (!status.equals("SC")) {
-                // Ghi log vào DB control lỗi ko thể chạy tiến trình do trạng thái hiện tại
-                String check_status_sql = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
-                PreparedStatement check_status_stmt = conn2.prepareStatement(check_status_sql);
-                check_status_stmt.setInt(1, 4);
-                check_status_stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-                check_status_stmt.setString(3, "FL");
-                check_status_stmt.setString(4, "Ko thể chạy tiến trình 4 do trạng thái hiện tại là: " + status);
-                check_status_stmt.executeUpdate();
+            if (status.equals("PS")) {
+                // Hiển thị lỗi
                 throw new RuntimeException("Ko thể chạy file do trạng thái hiện tại là: " + status);
             }
         }
@@ -198,9 +206,9 @@ public class LoadDetail {
             PreparedStatement stmt = conn1.prepareStatement(insertSQL);
             String[] nextLine;
             reader.readNext(); // Bỏ header
-            DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+            DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-            // 8. Đọc dữ liệu từ  deatail_crawl_ddmmYYYY.csv và lưu vào DB staging
+            // 8. Đọc dữ liệu từ detail_crawl_ddmmYYYY.csv và lưu vào bảng stg_gold_price_detail DB staging
             while ((nextLine = reader.readNext()) != null) {
                 String sourceId = nextLine[0].trim();
                 String brand = nextLine[2].trim();

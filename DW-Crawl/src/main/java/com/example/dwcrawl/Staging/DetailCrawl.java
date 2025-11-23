@@ -19,7 +19,8 @@ public class DetailCrawl {
     private int TIMEOUT_MS;
     private String outputPath;
     private static final String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
-    private static final String errorFilePath = "D:/DataWarehouse/DW-Crawl/";
+//    private static final String errorFilePath = "D:/DataWarehouse/DW-Crawl/";
+    private static final String errorFilePath = "/DW/control/config_error/";
     private String config_file_path;
     private String DB_URL;
     private String USER;
@@ -51,8 +52,8 @@ public class DetailCrawl {
     }
 
     public void loadConfig() {
-        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
-//        File configFile = new File(config_file_path);
+//        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
+        File configFile = new File(config_file_path);
 
         if (!configFile.exists()) {
             // Xuất file báo lỗi
@@ -92,12 +93,12 @@ public class DetailCrawl {
     public static void main(String[] args) throws SQLException {
         DetailCrawl detailCrawl = new DetailCrawl();
         // 1. Load file config.xml
-//        for (String arg : args) { // Input: config_file_path
-//            if (arg.startsWith("config_file_path=")) {
-//                detailCrawl.config_file_path = arg.substring("config_file_path=".length()).trim();
-//                System.out.println("Using config file: " + detailCrawl.config_file_path);
-//            }
-//        }
+        for (String arg : args) { // Input: config_file_path
+            if (arg.startsWith("config_file_path=")) {
+                detailCrawl.config_file_path = arg.substring("config_file_path=".length()).trim();
+                System.out.println("Using config file: " + detailCrawl.config_file_path);
+            }
+        }
         detailCrawl.loadConfig();
 
         // 3. Kết nối tới database
@@ -114,23 +115,33 @@ public class DetailCrawl {
             throw new RuntimeException("Không thể kết nối DB: " + detailCrawl.DB_URL);
         }
 
-        String check_etl_log_status = "SELECT 1 process_code, status FROM etl_log WHERE process_code = 2 ORDER BY log_id DESC LIMIT 1";
-        PreparedStatement stmt = conn.prepareStatement(check_etl_log_status);
-        ResultSet rs = stmt.executeQuery();
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+        LocalDate localDate = LocalDate.parse(currentDate, formatter);
+        String check_etl_log_status1 =
+                "SELECT 1 process_code, status FROM etl_log " +
+                        "WHERE process_code = 1 AND DATE(run_date) = ? " +
+                        "ORDER BY log_id DESC LIMIT 1";
+        String check_etl_log_status2 =
+                "SELECT 1 process_code, status FROM etl_log " +
+                        "WHERE process_code = 2 AND DATE(run_date) = ? " +
+                        "ORDER BY log_id DESC LIMIT 1";
+        PreparedStatement stmt1 = conn.prepareStatement(check_etl_log_status1);
+        PreparedStatement stmt2 = conn.prepareStatement(check_etl_log_status2);
+        stmt1.setDate(1, java.sql.Date.valueOf(localDate));
+        stmt2.setDate(1, java.sql.Date.valueOf(localDate));
+        ResultSet rs1 = stmt1.executeQuery();
+        ResultSet rs2 = stmt2.executeQuery();
 
         // 4. Kiểm tra trạng thái process trong bảng etl_log trong DB control
-        if (rs.next()) {
-            String status = rs.getString("status");
-            if (!status.equals("SC")) {
-                // Ghi log vào DB control lỗi ko thể chạy tiến trình do trạng thái hiện tại
-                String check_status_sql = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
-                PreparedStatement check_status_stmt = conn.prepareStatement(check_status_sql);
-                check_status_stmt.setInt(1, 2);
-                check_status_stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-                check_status_stmt.setString(3, "FL");
-                check_status_stmt.setString(4, "Ko thể chạy tiến trình 2 do trạng thái hiện tại là: " + status);
-                check_status_stmt.executeUpdate();
-                throw new RuntimeException("Ko thể chạy file do trạng thái hiện tại là: " + status);
+        if (rs1.next() && rs2.next()) {
+            String process1_status = rs1.getString("status");
+            String process2_status = rs2.getString("status");
+            if (!process1_status.equals("SC")) {
+                // Hiển thị lỗi
+                throw new RuntimeException("Ko thể chạy file do trạng thái tiến trình 1 hiện tại là: " + process1_status);
+            } else if (process2_status.equals("PS")) {
+                // Hiển thị lỗi
+                throw new RuntimeException("Ko thể chạy do tiến trình 2 đang có trạng thái: " + process2_status);
             }
         }
 
@@ -229,7 +240,7 @@ public class DetailCrawl {
                             .get();
 
                     LocalDateTime crawlTime = LocalDateTime.now();
-                    DateTimeFormatter formatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
+                    DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                     String unit = "x1000đ/lượng";
 
                     // 9. Extract dữ liệu
@@ -294,9 +305,10 @@ public class DetailCrawl {
                     }
                     count++;
                     Thread.sleep(1000 + ThreadLocalRandom.current().nextInt(500, 1500));
+                }
 
-                    // Ghi log vào DB control lỗi kết nối tới web ko thành công
-                } catch (IOException e) {
+                // Ghi log vào DB control lỗi kết nối tới web ko thành công
+                catch (IOException e) {
                     System.err.println("Lỗi khi crawl URL: " + url + " -> " + e.getMessage());
                     String error_web_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
                     PreparedStatement error_web_stmt1 = conn.prepareStatement(error_web_sql1);
@@ -343,8 +355,6 @@ public class DetailCrawl {
             success_status_stmt2.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()));
             success_status_stmt2.setString(4, "SC");
             success_status_stmt2.executeUpdate();
-
-
         }
 
         // Ghi log vào DB control đọc dữ liệu từ file giavang_ddmmYYYY.csv ko thành công

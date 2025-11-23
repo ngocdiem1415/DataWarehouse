@@ -20,8 +20,8 @@ public class Giavang {
     private int TIMEOUT_MS;
     private String outputPath;
     private static final String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
-    private static final String errorFilePath = "D:/DataWarehouse/DW-Crawl/";
-//    private static final String errorFilePath = "/DW/control/config_error/";
+//    private static final String errorFilePath = "D:/DataWarehouse/DW-Crawl/";
+        private static final String errorFilePath = "/DW/control/config_error/";
     private String config_file_path;
     private String DB_URL;
     private String USER;
@@ -47,8 +47,8 @@ public class Giavang {
     }
 
     public void loadConfig() {
-        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
-//        File configFile = new File(config_file_path);
+//        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
+        File configFile = new File(config_file_path);
 
         if (!configFile.exists()) {
             // Xuất file .txt báo lỗi ko load được file config.xml
@@ -90,12 +90,12 @@ public class Giavang {
     public static void main(String[] args) throws SQLException {
         Giavang scraper = new Giavang();
         // 1. Load file config.xml
-//        for (String arg : args) { // Input: config_file_path
-//            if (arg.startsWith("config_file_path=")) {
-//                scraper.config_file_path = arg.substring("config_file_path=".length()).trim();
-//                System.out.println("Using config file: " + scraper.config_file_path);
-//            }
-//        }
+        for (String arg : args) { // Input: config_file_path
+            if (arg.startsWith("config_file_path=")) {
+                scraper.config_file_path = arg.substring("config_file_path=".length()).trim();
+                System.out.println("Using config file: " + scraper.config_file_path);
+            }
+        }
         scraper.loadConfig();
 
         // 3. Kết nối tới database
@@ -112,28 +112,27 @@ public class Giavang {
             throw new RuntimeException("Không thể kết nối DB: " + scraper.DB_URL);
         }
 
-        String check_etl_log_status = "SELECT 1 process_code, status FROM etl_log WHERE process_code = 1 ORDER BY log_id DESC LIMIT 1";
+        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("ddMMyyyy");
+        LocalDate localDate = LocalDate.parse(currentDate, formatter);
+        String check_etl_log_status =
+                "SELECT 1 process_code, status FROM etl_log " +
+                        "WHERE process_code = 1 AND DATE(run_date) = ? " +
+                        "ORDER BY log_id DESC LIMIT 1";
         PreparedStatement stmt = conn.prepareStatement(check_etl_log_status);
+        stmt.setDate(1, java.sql.Date.valueOf(localDate));
         ResultSet rs = stmt.executeQuery();
 
-        // Kiểm tra trạng thái process trong bảng etl_log trong DB control
+        // 4. Kiểm tra trạng thái process 1 trong bảng etl_log trong DB control
         if (rs.next()) {
             String status = rs.getString("status");
-            if (!status.equals("SC")) {
-                // Ghi log vào DB control lỗi ko thể chạy tiến trình do trạng thái hiện tại
-                String check_status_sql = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
-                PreparedStatement check_status_stmt = conn.prepareStatement(check_status_sql);
-                check_status_stmt.setInt(1, 1);
-                check_status_stmt.setTimestamp(2, Timestamp.valueOf(LocalDateTime.now()));
-                check_status_stmt.setString(3, "FL");
-                check_status_stmt.setString(4, "Ko thể chạy tiến trình 1 do trạng thái hiện tại là: " + status);
-                check_status_stmt.executeUpdate();
-                throw new RuntimeException("Ko thể chạy file do trạng thái hiện tại là: "+status);
+            if (status.equals("PS")) {
+                // Hiển thị lỗi "Ko thể chạy file do trạng thái hiện tại là: PS"
+                throw new RuntimeException("Ko thể chạy file do trạng thái hiện tại là: " + status);
             }
         }
 
         try {
-            // 4. Kết nối và đọc dữ liệu từ web
+            // 5. Kết nối và đọc dữ liệu từ web
             Document doc = Jsoup.connect(scraper.URL)
                     .userAgent(scraper.USER_AGENT)
                     .timeout(scraper.TIMEOUT_MS)
@@ -159,7 +158,7 @@ public class Giavang {
                 String location = "";
                 int id = 1;
 
-                // 5. Extract dữ liệu
+                // 6. Extract dữ liệu
                 Elements rows = doc.select("table tbody tr");
 
                 // Ghi log vào DB control lỗi extract ko thành công
@@ -189,7 +188,7 @@ public class Giavang {
                     throw new RuntimeException("Extract dữ liệu ko thành công, đã ghi log lỗi vào DB");
                 }
 
-                // 6. Lưu dữ liệu vào file csv
+                // 7. Lưu dữ liệu vào file giavang_ddmmyyyy.csv
                 for (Element row : rows) {
                     Elements cols = row.select("td");
                     Elements heads = row.select("th");
@@ -208,7 +207,7 @@ public class Giavang {
                     }
                 }
 
-                // 7. Ghi log vào DB control việc ghi file thành công
+                // 8. Ghi log vào DB control việc ghi file thành công
                 String success_sql = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
                 PreparedStatement s1 = conn.prepareStatement(success_sql);
                 s1.setInt(1, 1);
@@ -227,7 +226,7 @@ public class Giavang {
             }
             System.out.println("Done scraping at: " + LocalDateTime.now());
 
-        // Ghi log vào DB control lỗi kết nối tới web ko thành công
+            // Ghi log vào DB control lỗi kết nối tới web ko thành công
         } catch (IOException e) {
             String error_sql = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
             PreparedStatement s1 = conn.prepareStatement(error_sql);
