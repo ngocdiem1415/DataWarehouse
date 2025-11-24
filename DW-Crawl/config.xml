@@ -8,6 +8,8 @@
     <entry key="output.path">D:/DataWarehouse/DW-Crawl/data/</entry>
     <entry key="input.path">D:/DataWarehouse/DW-Crawl/data/</entry>
 
+    <entry key="stg_to_wh.path">/DW/staging/export</entry>
+
     <entry key="db_user_root_name">root</entry>
     <entry key="db_user_root_pass">uBuntu@123a</entry>
 
@@ -15,5 +17,5 @@
     <entry key="db_control">jdbc:mysql://157.245.199.151:3306/control</entry>
     <entry key="db_mart">jdbc:mysql://157.245.199.151:3306/mart</entry>
     <entry key="db_warehouse">jdbc:mysql://157.245.199.151:3306/warehouse</entry>
-    <entry key="db_staging">jdbc:mysql://157.245.199.151:3306/staging</entry>
+<!--    <entry key="db_staging">jdbc:mysql://157.245.199.151:3306/staging</entry>-->
 </properties>
