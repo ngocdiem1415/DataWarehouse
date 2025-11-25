@@ -8,6 +8,8 @@
     <entry key="output.path">D:/DataWarehouse/DW-Crawl/data/</entry>
     <entry key="input.path">D:/DataWarehouse/DW-Crawl/data/</entry>
 
+    <entry key="output.mart">D:\ki1nam4\DW\Script\DW-Crawl\data\</entry>
+
     <entry key="db_user_root_name">root</entry>
     <entry key="db_user_root_pass">uBuntu@123a</entry>
 
