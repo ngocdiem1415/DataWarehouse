@@ -60,6 +60,9 @@ public class Transform {
 //        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
         File configFile = new File(config_file_path);
 
+        // Xuất file ddMMyyyy_source-crawl_config-error.txt
+        // trong thư mục /DW/control/config_error
+        // báo lỗi ko tìm thấy config.xml
         if (!configFile.exists()) {
             File errorFile = new File(errorFilePath + currentDate + "_load-source_" + "config-error.txt");
             try (FileWriter writer = new FileWriter(errorFile)) {
@@ -80,7 +83,10 @@ public class Transform {
             PASSWORD = getRequiredProperty(props, "db_user_root_pass", "PASSWORD");
         }
 
-        // Xuất file .txt báo lỗi ko load được giá trị trong file config.xml
+        //Xuất file
+        //ddMMyyyy_source-crawl_loadConfigValue-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi gán giá trị từ config không thành công
         catch (Exception e) {
             File error_loadConfig_value = new File(errorFilePath + currentDate + "_source-crawl_loadConfigValue-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(error_loadConfig_value))) {
@@ -108,7 +114,10 @@ public class Transform {
         Connection conn1 = clean.connectToStaging();
         Connection conn2 = clean.connectToControl();
 
-        // Xuất file .txt báo lỗi ko thể kết nối đến DB
+        //Xuất file
+        //ddMMyyyy_source-crawl_connectDB-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi báo lỗi ko thể kết nối đến DB
         if (conn1 == null) {
             File errorConnectDB = new File(errorFilePath + currentDate + "_source-crawl_connectDB-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorConnectDB))) {
@@ -142,12 +151,14 @@ public class Transform {
         if (data.next()) {
             String status = data.getString("status");
             if (status.equals("PS")) {
-                // Hiển thị lỗi
+                // Hiển thị lỗi "Ko thể chạy file do trạng thái hiện tại là: PS"
                 throw new RuntimeException("Ko thể chạy file do trạng thái hiện tại là: " + status);
             }
         }
 
         // 5. Ghi log tiến trình đang thực hiện vào DB control
+        // Truncate bảng stg_gold_price_clean
+        // Lấy dữ liệu từ bảng stg_gold_price_detail
         String process_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
         PreparedStatement process_status_stmt1 = conn2.prepareStatement(process_sql1);
         process_status_stmt1.setInt(1, 5);
@@ -156,13 +167,11 @@ public class Transform {
         process_status_stmt1.setString(4, "Đang tiến hành tiến trình 5");
         process_status_stmt1.executeUpdate();
 
-        // 6. Truncate bảng stg_gold_price_clean
         String truncate_sql = "TRUNCATE TABLE stg_gold_price_clean";
         PreparedStatement truncate_stmt = conn1.prepareStatement(truncate_sql);
         truncate_stmt.executeUpdate();
         System.out.println("Bảng stg_gold_price_clean đã được truncate");
 
-        // 7. Lấy dữ liệu từ bảng stg_gold_price_detail
         String select_all = "SELECT DISTINCT d.brand, d.location, d.gold_type, d.buy_price, d.sell_price, d.unit, s.brand_url, d.`timestamp` " +
                 "FROM stg_gold_price_detail AS d\n" +
                 "JOIN stg_gold_price_source AS s\n" +
@@ -221,9 +230,14 @@ public class Transform {
             insert_stmt.setTimestamp(10, loadDateTime);
 
             // 8. Thêm dữ liệu vào bảng stg_gold_price_clean
+            //và
+            //Ghi log cho tiến trình sau khi chạy xong trong DB control
             insert_stmt.executeUpdate();
         }
-        // 9. Ghi log cho tiến trình sau khi chạy xong trong DB control
+
+        // 8. Thêm dữ liệu vào bảng stg_gold_price_clean
+        //và
+        //Ghi log cho tiến trình sau khi chạy xong trong DB control
         String success_sql = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
         PreparedStatement success_status_stmt = conn2.prepareStatement(success_sql);
         success_status_stmt.setInt(1, 5);

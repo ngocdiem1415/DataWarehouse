@@ -54,7 +54,9 @@ public class LoadDetail {
 //        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
                 File configFile = new File(config_file_path);
 
-        // Xuất file .txt báo lỗi ko load được file config.xml
+        // Xuất file ddMMyyyy_source-crawl_config-error.txt
+        // trong thư mục /DW/control/config_error
+        // báo lỗi ko tìm thấy config.xml
         if (!configFile.exists()) {
             File errorFile = new File(errorFilePath + currentDate + "_load-detail" + "config-error.txt");
             try (FileWriter writer = new FileWriter(errorFile)) {
@@ -75,7 +77,11 @@ public class LoadDetail {
             USER = getRequiredProperty(props, "db_user_root_name", "USER");
             PASSWORD = getRequiredProperty(props, "db_user_root_pass", "PASSWORD");
         }
-        // Xuất file .txt báo lỗi ko load được giá trị trong file config.xml
+
+        //Xuất file
+        //ddMMyyyy_source-crawl_loadConfigValue-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi gán giá trị từ config không thành công
         catch (Exception e) {
             File error_loadConfig_value = new File(errorFilePath + currentDate + "_source-crawl_loadConfigValue-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(error_loadConfig_value))) {
@@ -106,7 +112,10 @@ public class LoadDetail {
         Connection conn1 = load.connectToStaging();
         Connection conn2 = load.connectToControl();
 
-        // Xuất file .txt báo lỗi ko thể kết nối đến DB
+        //Xuất file
+        //ddMMyyyy_source-crawl_connectDB-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi báo lỗi ko thể kết nối đến DB
         if (conn1 == null) {
             File errorConnectDB = new File(errorFilePath + currentDate + "_source-crawl_connectDB-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorConnectDB))) {
@@ -140,7 +149,7 @@ public class LoadDetail {
         if (rs.next()) {
             String status = rs.getString("status");
             if (status.equals("PS")) {
-                // Hiển thị lỗi
+                // Hiển thị lỗi "Ko thể chạy file do ..."
                 throw new RuntimeException("Ko thể chạy file do trạng thái hiện tại là: " + status);
             }
         }
@@ -175,6 +184,8 @@ public class LoadDetail {
         }
 
         // 5. Ghi log tiến trình đang thực hiện vào DB control
+        //và
+        //Đọc dữ liệu từ file detail_crawl_ddmmYYYY.csv
         String process_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
         PreparedStatement process_status_stmt1 = conn2.prepareStatement(process_sql1);
         process_status_stmt1.setInt(1, 4);
@@ -189,11 +200,13 @@ public class LoadDetail {
         process_status_stmt2.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()));
         process_status_stmt2.setString(4, "RD");
         process_status_stmt2.executeUpdate();
-
-        // 6. Đọc dữ liệu từ file detail_crawl_ddmmYYYY.csv
         try (CSVReader reader = new CSVReader(new FileReader(csvFile))) {
 
             // 7. Ghi log cho tiến trình với trạng thái "RN" vào bảng file_config trong DB control
+            //và
+            //Đọc dữ liệu từ detail_crawl_ddmmYYYY.csv và lưu vào bảng stg_gold_price_detail DB staging
+            //và
+            //Ghi log cho tiến trình sau khi chạy xong trong DB control
             String running_status_sql = "INSERT INTO file_config (process_code, file_source, create_at_file, status) VALUES (?,?,?,?);";
             PreparedStatement running_stmt = conn2.prepareStatement(running_status_sql);
             running_stmt.setInt(1, 4);
@@ -208,7 +221,6 @@ public class LoadDetail {
             reader.readNext(); // Bỏ header
             DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-            // 8. Đọc dữ liệu từ detail_crawl_ddmmYYYY.csv và lưu vào bảng stg_gold_price_detail DB staging
             while ((nextLine = reader.readNext()) != null) {
                 String sourceId = nextLine[0].trim();
                 String brand = nextLine[2].trim();
@@ -234,7 +246,6 @@ public class LoadDetail {
             int[] result = stmt.executeBatch();
             System.out.println("Inserted " + result.length + " rows into bảng");
 
-            // 9. Ghi log cho tiến trình sau khi chạy xong trong DB control
             String success_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
             PreparedStatement success_status_stmt1 = conn2.prepareStatement(success_sql1);
             success_status_stmt1.setInt(1, 4);
@@ -250,6 +261,7 @@ public class LoadDetail {
             success_status_stmt2.setString(4, "SC");
             success_status_stmt2.executeUpdate();
         }
+
         // Ghi log vào DB control đọc dữ liệu từ file giavang_ddmmYYYY.csv ko thành công
         catch (Exception e) {
             String input_file_error1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";

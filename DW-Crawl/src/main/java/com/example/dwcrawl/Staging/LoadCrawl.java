@@ -54,7 +54,9 @@ public class LoadCrawl {
 //        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
                 File configFile = new File(config_file_path);
 
-        // Xuất file .txt báo lỗi ko load được file config.xml
+        // Xuất file ddMMyyyy_source-crawl_config-error.txt
+        // trong thư mục /DW/control/config_error
+        // báo lỗi ko tìm thấy config.xml
         if (!configFile.exists()) {
             File errorFile = new File(errorFilePath + currentDate + "_load-source" + "config-error.txt");
             try (FileWriter writer = new FileWriter(errorFile)) {
@@ -76,7 +78,10 @@ public class LoadCrawl {
             PASSWORD = getRequiredProperty(props, "db_user_root_pass", "PASSWORD");
         }
 
-        // Xuất file .txt báo lỗi ko load được giá trị trong file config.xml
+        //Xuất file
+        //ddMMyyyy_source-crawl_loadConfigValue-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi gán giá trị từ config không thành công
         catch (Exception e) {
             File error_loadConfig_value = new File(errorFilePath + currentDate + "_source-crawl_loadConfigValue-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(error_loadConfig_value))) {
@@ -107,7 +112,10 @@ public class LoadCrawl {
         Connection conn1 = load.connectToStaging();
         Connection conn2 = load.connectToControl();
 
-        // Xuất file .txt báo lỗi ko thể kết nối đến DB
+        //Xuất file
+        //ddMMyyyy_source-crawl_connectDB-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi báo lỗi ko thể kết nối đến DB
         if (conn1 == null) {
             File errorConnectDB = new File(errorFilePath + currentDate + "_source-crawl_connectDB-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorConnectDB))) {
@@ -141,7 +149,7 @@ public class LoadCrawl {
         if (rs.next()) {
             String status = rs.getString("status");
             if (status.equals("PS")) {
-                // Hiển thị lỗi
+                // Hiển thị lỗi "Ko thể chạy file do ..."
                 throw new RuntimeException("Ko thể chạy file do trạng thái hiện tại là: " + status);
             }
         }
@@ -176,6 +184,8 @@ public class LoadCrawl {
         }
 
         // 5. Ghi log tiến trình đang thực hiện vào DB control
+        //
+        // Đọc dữ liệu từ file giavang_ddmmYYYY.csv
         String process_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
         PreparedStatement process_status_stmt1 = conn2.prepareStatement(process_sql1);
         process_status_stmt1.setInt(1, 3);
@@ -191,10 +201,14 @@ public class LoadCrawl {
         process_status_stmt2.setString(4, "RD");
         process_status_stmt2.executeUpdate();
 
-        // 6. Đọc dữ liệu từ file giavang_ddmmYYYY.csv
+        // 7. Truncate bảng  stg_gold_price_source và stg_gold_price_detail
+        //
+        //Ghi log cho tiến trình với trạng thái "RN" vào bảng file_config trong DB control
+        //
+        //Đọc dữ liệu từ giavang_ddmmYYYY.csv và lưu vào bảng stg_gold_price_source DB staging
+        //
+        //Ghi log cho tiến trình sau khi chạy xong trong DB control
         try (CSVReader reader = new CSVReader(new FileReader(csvFile))) {
-
-            // 7. Truncate bảng  stg_gold_price_source và stg_gold_price_detail
             String truncate = "TRUNCATE TABLE stg_gold_price_source";
             PreparedStatement trunc_stmt = conn1.prepareStatement(truncate);
             conn1.prepareStatement("SET FOREIGN_KEY_CHECKS = 0").execute(); // Disable FK
@@ -204,7 +218,6 @@ public class LoadCrawl {
             System.out.println("Đã truncate bảng source và detail");
             conn1.prepareStatement("SET FOREIGN_KEY_CHECKS = 1").execute(); // Enable FK
 
-            // 8. Ghi log cho tiến trình với trạng thái "RN" vào bảng file_config trong DB control
             String running_status_sql = "INSERT INTO file_config (process_code, file_source, create_at_file, status) VALUES (?,?,?,?);";
             PreparedStatement running_stmt = conn2.prepareStatement(running_status_sql);
             running_stmt.setInt(1, 3);
@@ -219,7 +232,6 @@ public class LoadCrawl {
             reader.readNext();
             DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
-            // 9. Đọc dữ liệu từ giavang_ddmmYYYY.csv và lưu vào bảng stg_gold_price_source DB staging
             while ((nextLine = reader.readNext()) != null) {
                 String location = nextLine[1].trim();
                 String brand = nextLine[2].trim();
@@ -241,7 +253,6 @@ public class LoadCrawl {
             int[] result = stmt.executeBatch();
             System.out.println("Inserted " + result.length + " into crawl_data");
 
-            // 10. Ghi log cho tiến trình sau khi chạy xong trong DB control
             String success_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
             PreparedStatement success_status_stmt1 = conn2.prepareStatement(success_sql1);
             success_status_stmt1.setInt(1, 3);

@@ -21,7 +21,7 @@ public class Giavang {
     private String outputPath;
     private static final String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
 //    private static final String errorFilePath = "D:/DataWarehouse/DW-Crawl/";
-        private static final String errorFilePath = "/DW/control/config_error/";
+    private static final String errorFilePath = "/DW/control/config_error/";
     private String config_file_path;
     private String DB_URL;
     private String USER;
@@ -50,8 +50,10 @@ public class Giavang {
 //        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
         File configFile = new File(config_file_path);
 
+        // Xuất file ddMMyyyy_source-crawl_config-error.txt
+        // trong thư mục /DW/control/config_error
+        // báo lỗi ko tìm thấy config.xml
         if (!configFile.exists()) {
-            // Xuất file .txt báo lỗi ko load được file config.xml
             File errorFile = new File(errorFilePath + currentDate + "_source-crawl" + "config-error.txt");
             try (FileWriter writer = new FileWriter(errorFile)) {
                 writer.write("Ko tìm thấy file config.xml");
@@ -75,7 +77,9 @@ public class Giavang {
             PASSWORD = getRequiredProperty(props, "db_user_root_pass", "PASSWORD");
         }
 
-        // Xuất file .txt báo lỗi ko load được giá trị trong file config.xml
+        //Xuất file ddMMyyyy_source-crawl_loadConfigValue-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi gán giá trị từ config không thành công
         catch (Exception e) {
             File error_loadConfig_value = new File(errorFilePath + currentDate + "_source-crawl_loadConfigValue-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(error_loadConfig_value))) {
@@ -101,7 +105,9 @@ public class Giavang {
         // 3. Kết nối tới database
         Connection conn = scraper.connectToDatabase();
 
-        // Xuất file .txt báo lỗi ko thể kết nối đến DB
+        // Xuất file ddMMyyyy_source-crawl_connectDB-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi báo lỗi ko thể kết nối đến DB
         if (conn == null) {
             File errorConnectDB = new File(errorFilePath + currentDate + "_source-crawl_connectDB-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorConnectDB))) {
@@ -189,6 +195,8 @@ public class Giavang {
                 }
 
                 // 7. Lưu dữ liệu vào file giavang_ddmmyyyy.csv
+                // và
+                //Ghi log vào DB control việc ghi file thành công
                 for (Element row : rows) {
                     Elements cols = row.select("td");
                     Elements heads = row.select("th");
@@ -206,8 +214,6 @@ public class Giavang {
                                 id++, location, brand, mua, ban, url, now));
                     }
                 }
-
-                // 8. Ghi log vào DB control việc ghi file thành công
                 String success_sql = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
                 PreparedStatement s1 = conn.prepareStatement(success_sql);
                 s1.setInt(1, 1);

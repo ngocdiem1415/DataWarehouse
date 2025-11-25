@@ -1,3 +1,3 @@
 Manifest-Version: 1.0
-Main-Class: com.example.dwcrawl.Staging.Transform
+Main-Class: com.example.dwcrawl.Staging.DetailCrawl
 

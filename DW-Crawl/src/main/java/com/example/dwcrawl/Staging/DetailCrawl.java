@@ -55,8 +55,10 @@ public class DetailCrawl {
 //        File configFile = new File("D:/DataWarehouse/DW-Crawl/config.xml");
         File configFile = new File(config_file_path);
 
+        // Xuất file ddMMyyyy_source-crawl_config-error.txt
+        // trong thư mục /DW/control/config_error
+        // báo lỗi ko tìm thấy config.xml
         if (!configFile.exists()) {
-            // Xuất file báo lỗi
             File errorFile = new File(errorFilePath + currentDate + "_detail-crawl" + "config-error.txt");
             try (FileWriter writer = new FileWriter(errorFile)) {
                 writer.write("Ko tìm thấy file config.xml");
@@ -78,7 +80,9 @@ public class DetailCrawl {
             PASSWORD = getRequiredProperty(props, "db_user_root_pass", "PASSWORD");
         }
 
-        // Xuất file .txt báo lỗi ko load được giá trị trong file config.xml
+        //Xuất file ddMMyyyy_source-crawl_loadConfigValue-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi gán giá trị từ config không thành công
         catch (Exception e) {
             File error_loadConfig_value = new File(errorFilePath + currentDate + "_source-crawl_loadConfigValue-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(error_loadConfig_value))) {
@@ -104,7 +108,9 @@ public class DetailCrawl {
         // 3. Kết nối tới database
         Connection conn = detailCrawl.connectToDatabase();
 
-        // Xuất file .txt báo lỗi ko thể kết nối đến DB
+        // Xuất file ddMMyyyy_source-crawl_connectDB-error.txt
+        //trong thư mục /DW/control/config_error
+        //báo lỗi báo lỗi ko thể kết nối đến DB
         if (conn == null) {
             File errorConnectDB = new File(errorFilePath + currentDate + "_source-crawl_connectDB-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorConnectDB))) {
@@ -137,10 +143,10 @@ public class DetailCrawl {
             String process1_status = rs1.getString("status");
             String process2_status = rs2.getString("status");
             if (!process1_status.equals("SC")) {
-                // Hiển thị lỗi
+                // Hiển thị lỗi "Ko thể chạy file do ..."
                 throw new RuntimeException("Ko thể chạy file do trạng thái tiến trình 1 hiện tại là: " + process1_status);
             } else if (process2_status.equals("PS")) {
-                // Hiển thị lỗi
+                // Hiển thị lỗi "Ko thể chạy file do ..."
                 throw new RuntimeException("Ko thể chạy do tiến trình 2 đang có trạng thái: " + process2_status);
             }
         }
@@ -179,11 +185,13 @@ public class DetailCrawl {
         // Xóa file detail_crawl_ddmmyyyy.csv cũ
         File file_output = new File(outputFile);
         if (file_output.exists()) {
-            boolean deleted = file.delete();
+            boolean deleted = file_output.delete();
             System.out.println("Deleted file " + outputFile + ": " + deleted);
         }
 
         // 5. Ghi log tiến trình đang thực hiện vào DB control
+        //và
+        //Đọc dữ liệu từ file giavang_ddmmYYYY.csv
         String process_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
         PreparedStatement process_status_stmt1 = conn.prepareStatement(process_sql1);
         process_status_stmt1.setInt(1, 2);
@@ -198,8 +206,6 @@ public class DetailCrawl {
         process_status_stmt2.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()));
         process_status_stmt2.setString(4, "RD");
         process_status_stmt2.executeUpdate();
-
-        // 6. Đọc dữ liệu từ file giavang_ddmmYYYY.csv
         try (BufferedReader reader = new BufferedReader(
                 new InputStreamReader(new FileInputStream(csvFile), StandardCharsets.UTF_8));
              BufferedWriter writer = new BufferedWriter(
@@ -209,7 +215,9 @@ public class DetailCrawl {
             boolean isHeader = true;
             int count = 1;
 
-            // 7. Ghi log cho tiến trình với trạng thái "RN" vào bảng file_config trong DB control
+            // 6. Ghi log cho tiến trình với trạng thái "RN" vào bảng file_config trong DB control
+            //và
+            //Kết nối và đọc dữ liệu từ web theo url trong giavang_ddmmYYYY.csv
             String running_status_sql = "INSERT INTO file_config (process_code, file_source, create_at_file, status) VALUES (?,?,?,?);";
             PreparedStatement running_stmt = conn.prepareStatement(running_status_sql);
             running_stmt.setInt(1, 2);
@@ -217,7 +225,6 @@ public class DetailCrawl {
             running_stmt.setTimestamp(3, Timestamp.valueOf(LocalDateTime.now()));
             running_stmt.setString(4, "RN");
             running_stmt.executeUpdate();
-
             while ((line = reader.readLine()) != null) {
                 if (isHeader) {
                     isHeader = false;
@@ -232,8 +239,6 @@ public class DetailCrawl {
                 if (url.isEmpty()) continue;
                 try {
                     System.out.println(count + "/ " + "Crawling: " + url);
-
-                    // 8. Kết nối và đọc dữ liệu từ web theo url trong giavang_ddmmYYYY.csv
                     Document doc = Jsoup.connect(url)
                             .userAgent(detailCrawl.USER_AGENT)
                             .timeout(detailCrawl.TIMEOUT_MS)
@@ -243,7 +248,7 @@ public class DetailCrawl {
                     DateTimeFormatter format = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
                     String unit = "x1000đ/lượng";
 
-                    // 9. Extract dữ liệu
+                    // 7. Extract dữ liệu
                     Elements rows = doc.select("table tbody tr");
 
                     // Ghi log vào DB control lỗi extract ko thành công
@@ -273,7 +278,9 @@ public class DetailCrawl {
                         failed_status_stmt3.executeUpdate();
                     }
 
-                    // 10. Lưu dữ liệu vào file detail_crawl_ddmmyyyy.csv
+                    //8. Lưu dữ liệu vào file detail_crawl.csv
+                    //và
+                    //Ghi log cho tiến trình sau khi chạy xong trong DB control
                     for (Element r : rows) {
                         Elements cells = r.select("th, td");
                         if (cells.size() < 3) continue;
@@ -340,7 +347,9 @@ public class DetailCrawl {
             }
             System.out.println("Hoàn tất crawl chi tiết, lưu tại: " + outputFile);
 
-            // 11. Ghi log cho tiến trình sau khi chạy xong trong DB control
+            //8. Lưu dữ liệu vào file detail_crawl.csv
+            //và
+            //Ghi log cho tiến trình sau khi chạy xong trong DB control
             String success_sql1 = "INSERT INTO etl_log (process_code, run_date, status, log_message) VALUES (?,?,?,?);";
             PreparedStatement success_status_stmt1 = conn.prepareStatement(success_sql1);
             success_status_stmt1.setInt(1, 2);
