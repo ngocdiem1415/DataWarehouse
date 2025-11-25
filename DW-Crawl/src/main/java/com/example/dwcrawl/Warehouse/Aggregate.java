@@ -50,7 +50,7 @@ public class Aggregate {
         if (!configFile.exists()) {
             File errorFile = new File(errorFilePath + currentDate + "_aggregate_config-error.txt");
             try (FileWriter writer = new FileWriter(errorFile)) {
-                writer.write("Ko tìm thấy file config.xml tại: " + config_file_path);
+                writer.write("Không tìm thấy file config.xml tại: " + config_file_path);
                 writer.write(System.lineSeparator());
             } catch (IOException ioEx) {
                 ioEx.printStackTrace();
@@ -102,7 +102,7 @@ public class Aggregate {
     }
 
     // 3. Kết nối tới db
-    // 3.1 Kết nối tới Warehouse database
+    // Kết nối tới Warehouse database
     // Return connection neu thanh cong, null neu that bai
     public Connection connectToWarehouse() {
         try {
@@ -125,7 +125,7 @@ public class Aggregate {
         }
     }
 
-    // 3.2 Kết nối tới Control database
+    // Kết nối tới Control database
     // Return connection neu thanh cong, null neu that bai
     public Connection connectToControl() {
         try {
@@ -161,7 +161,7 @@ public class Aggregate {
              ResultSet rs = stmt.executeQuery()) {
 
             if (!rs.next()) {
-                String errorMsg = "Không tìm thấy bất kỳ lần chạy thành công nào của Process 6 (Load Warehouse).";
+                String errorMsg = "Không tìm thấy lần chạy thành công của Process 6 (Load Warehouse).";
 
                 // Ghi loi vao file txt
                 File errorFile = new File(errorFilePath + currentDate + "_aggregate_process6-error.txt");
@@ -194,9 +194,9 @@ public class Aggregate {
         }
     }
 
-    // 5. Tính toán avg_buy_price, avg_sell_price, record_count vào bảng aggregate_gold dựa vào bảng gold_price
-    // Su dung TEMP TABLE de backup du lieu cu truoc khi truncate
-    // Neu co loi se tu dong restore du lieu tu bang tam
+    // Tính toán avg_buy_price, avg_sell_price, record_count vào bảng aggregate_gold dựa vào bảng gold_price
+    // Sử dụng TEMP TABLE để backup dữ liệu trước khi truncate
+    // Nếu có lỗi sẽ tự động restore dữ liệu từ bảng tạm
     public void performAggregate(Connection connWarehouse) throws SQLException {
         System.out.println("=== Sử dụng TEMP TABLE để backup và aggregate ===");
 
@@ -204,7 +204,7 @@ public class Aggregate {
         connWarehouse.setAutoCommit(false);
 
         try {
-            // Buoc 1: Tao bang tam va backup toan bo du lieu hien tai
+            // Bước 1: Tạo bảng tạm và backup toàn bộ dữ liệu hiện tại
             System.out.println("Bước 1: Tạo bảng tạm và backup dữ liệu...");
             String createTempSQL =
                     "CREATE TEMPORARY TABLE aggregate_gold_backup " +
@@ -215,7 +215,7 @@ public class Aggregate {
                 System.out.println("Đã backup dữ liệu vào bảng tạm aggregate_gold_backup");
             }
 
-            // Buoc 2: Truncate bang chinh de xoa toan bo du lieu cu
+            // Bước 2: Truncate bảng chính để xóa toàn bộ dữ liệu cũ
             System.out.println("Bước 2: Truncate bảng aggregate_gold...");
             String truncateSQL = "TRUNCATE TABLE aggregate_gold";
 
@@ -224,8 +224,8 @@ public class Aggregate {
                 System.out.println("Đã truncate bảng aggregate_gold");
             }
 
-            // Buoc 3: Tinh toan va insert du lieu moi
-            // Tinh trung binh gia mua, gia ban va dem so luong record
+            // Bước 3: Tính toán và insert dữ liệu mới
+            // Tính trung bình giá mua, giá bán và đếm số lượng record
             // Group theo brand_sk, location_sk, date_id
             System.out.println("Bước 3: Tính toán và insert dữ liệu mới...");
             String aggregateSQL =
@@ -248,7 +248,7 @@ public class Aggregate {
                 System.out.println("Đã insert " + rowsAffected + " records vào aggregate_gold");
             }
 
-            // Commit transaction neu thanh cong
+            // Commit transaction nếu thành công
             connWarehouse.commit();
             System.out.println("Hoàn thành aggregate thành công (TEMP TABLE + TRUNCATE)");
 
@@ -259,7 +259,7 @@ public class Aggregate {
             connWarehouse.rollback();
             System.out.println("Đang rollback và restore dữ liệu từ bảng tạm...");
 
-            // Restore du lieu tu bang tam
+            // Restore dữ liệu từ bảng tạm
             String restoreSQL = "INSERT INTO aggregate_gold SELECT * FROM aggregate_gold_backup";
             try (PreparedStatement stmt = connWarehouse.prepareStatement(restoreSQL)) {
                 int restored = stmt.executeUpdate();
@@ -288,7 +288,7 @@ public class Aggregate {
         }
     }
 
-    // Ghi chi tiet loi vao bang error_log trong DB control
+    // Ghi chi tiết lỗi vào bảng error_log trong DB control
     public void logErrorToDatabase(Connection connControl, String errorMessage) {
         String detail_error_sql = "INSERT INTO error_log (process_code, error_time, error_message, error_file) VALUES (?,?,?,?);";
         try (PreparedStatement stmt = connControl.prepareStatement(detail_error_sql)) {
@@ -332,7 +332,7 @@ public class Aggregate {
             connWarehouse = aggregate.connectToWarehouse();
             connControl = aggregate.connectToControl();
 
-            // Kiem tra ket noi thanh cong hay khong
+            // Kiểm tra kết nối
             if (connWarehouse == null) {
                 throw new RuntimeException("Không thể kết nối DB Warehouse: " + aggregate.DB_WAREHOUSE);
             }
@@ -343,10 +343,9 @@ public class Aggregate {
             // 4. Kiểm tra trạng thái process 6 trong bảng etl_log trong DB control
             aggregate.checkProcess6Status(connControl);
 
-            // Ghi log bat dau tien trinh
+            // 5. Ghi log bắt đầu tiến trình và tính toán avg_buy_price, avg_sell_price, record_count
+            // vào bảng aggregate_gold dựa vào bảng gold_price
             aggregate.logProcessStart(connControl);
-
-            // 5. Tính toán avg_buy_price, avg_sell_price, record_count vào bảng aggregate_gold dựa vào bảng gold_price
             aggregate.performAggregate(connWarehouse);
 
             // 6. Ghi log tiến trình sau khi chạy xong trong DB control
@@ -355,16 +354,16 @@ public class Aggregate {
             System.out.println("Tiến trình Aggregate hoàn thành thành công!");
 
         } catch (Exception e) {
-            // Xu ly loi va ghi log
+            // Xử lý log và ghi lỗi
             System.err.println("Lỗi trong quá trình aggregate: " + e.getMessage());
             e.printStackTrace();
 
-            // Ghi loi vao database
+            // Ghi lỗi vào database
             if (connControl != null) {
                 aggregate.logErrorToDatabase(connControl, e.getMessage());
             }
 
-            // Ghi loi vao file txt
+            // Ghi lỗi vào file txt
             File errorFile = new File(errorFilePath + currentDate + "_aggregate_general-error.txt");
             try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorFile))) {
                 writer.write("Lỗi tiến trình 7 - Aggregate: " + e.getMessage());
@@ -381,7 +380,7 @@ public class Aggregate {
             throw new RuntimeException("Aggregate failed: " + e.getMessage(), e);
 
         } finally {
-            // Dong tat ca ket noi
+            // Đóng tất cả kết nối
             if (connWarehouse != null) try { connWarehouse.close(); } catch (SQLException ignored) {}
             if (connControl != null) try { connControl.close(); } catch (SQLException ignored) {}
         }
