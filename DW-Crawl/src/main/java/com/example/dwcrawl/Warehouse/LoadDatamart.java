@@ -23,6 +23,7 @@ public class LoadDatamart {
     private String date;
     private static final String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
     private String pathFileError;
+    private static final String errorFilePath = "/DW/control/config_error/";
 
     private Connection controlConn = null; // Kết nối đến DB Control
     private Connection dataConn = null; // Kết nối đến DB cần xử lí
@@ -35,8 +36,18 @@ public class LoadDatamart {
         this.configPath = config;
         // Tạo file config từ đường dẫn được truyền vào
         File configFile = new File(config);
+        // Xuất file .txt báo lỗi ko load được file config.xml
+        if (!configFile.exists()) {
+            File errorFile = new File(errorFilePath + currentDate + "_load-source" + "config-error.txt");
+            try (FileWriter writer = new FileWriter(errorFile)) {
+                writer.write("Ko tìm thấy file config.xml");
+            } catch (IOException ioEx) {
+                ioEx.printStackTrace();
+            }
+            throw new RuntimeException("Không tìm thấy file config.xml");
+        }
 
-        // Nếu không tìm thấy thì quăng lỗi
+        // Nếu không tìm thấy thì quăn lỗi
         if (!configFile.exists()) {
             // Gọi hàm ghi log trong error_log
             System.out.println("Ghi log error_log thành công" + insertLogToErrorLog("Không tìm thấy file config.xml", "N/A"));
@@ -71,16 +82,19 @@ public class LoadDatamart {
             this.controlConn = DriverManager.getConnection(DB_CONTROL_URL, USER, PASSWORD);
             System.out.println("Kết nối DB Control thành công.");
         } catch (SQLException e) {
-            // Gọi hàm ghi log trong error_log
-            System.out.println("Ghi log error_log thành công" + insertLogToErrorLog("Lỗi kết nối đến DB Control", "N/A"));
-            // Gọi hàm ghi log trong etl_log
-            System.out.println("Ghi log etl_log thành công" + insertLogToETLLog("Lỗi kết nối đến DB Control", "FL"));
+            File errorFile = new File(errorFilePath + currentDate + "_load-db.control");
+            try (FileWriter writer = new FileWriter(errorFile)) {
+                writer.write("Lỗi kết nối đến DB Control: " + e.getMessage());
+            } catch (IOException ioEx) {
+                ioEx.printStackTrace();
+            }
             System.err.println("Lỗi kết nối đến DB Control: " + e.getMessage());
             throw new RuntimeException("Lỗi kết nối db: " + e.getMessage(), e);
         }
     }
 
-    // 2.Kết nối db leien quan đến dữ liệu
+    // 3. Kết nối db.warehouse Input: config.db_warehouse, name
+    //9. Kết nối db.mart Input: config.db_mart, name
     public void connectDBDT(String url, String dbName) throws SQLException {
         if (this.dataConn != null) {
             try {
@@ -96,19 +110,19 @@ public class LoadDatamart {
             System.out.println("Kết nối DB" + dbName + " thành công.");
 
         } catch (SQLException e) {
-            // Gọi hàm ghi log trong error_log
-            System.out.println("Ghi log error_log thành công" + insertLogToErrorLog("Lỗi kết nối đến DB " + dbName, pathFileError));
-            // Gọi hàm ghi log trong etl_log
-            System.out.println("Ghi log etl_log thành công" + insertLogToETLLog("Lỗi kết nối đến DB " + dbName, "FL"));
+            File errorFile = new File(errorFilePath + currentDate + "_load-db.control");
+            try (FileWriter writer = new FileWriter(errorFile)) {
+                writer.write("Lỗi kết nối đến DB" + dbName + e.getMessage());
+            } catch (IOException ioEx) {
+                ioEx.printStackTrace();
+            }
             System.err.println("Lỗi kết nối đến DB" + dbName + e.getMessage());
             throw new RuntimeException("Lỗi kết nối db: " + e.getMessage(), e);
         }
     }
 
-    //Kiểm tra record trong etl_log
+    //4. Kiểm tra record trong etl_log
     public boolean checkRecordETLLog() {
-        //Ghi log process đang bắt dầu chạy
-        System.out.println("Ghi log etl_log thành công " + insertLogToETLLog("Process dump aggregate đang bắt đầu chạy ", "PS"));
         String sql = "SELECT 1 FROM etl_log " +
                 "WHERE process_code = ? AND DATE_FORMAT(run_date, '%d%m%Y') = ? AND status = 'SC'";
         // PROCESS_ID stt hiện tại của script trước khi chạy cần kiểm tra xem script
@@ -143,6 +157,7 @@ public class LoadDatamart {
         }
     }
 
+    //6. Export table thành file csv
     public void exportTablesToCSV(List<String> tableNames) {
         if (!checkRecordETLLog()) {
             System.out.println("Ghi log error_log thành công" + insertLogToErrorLog("Process trước đó chưa thành công. Không thực hiện export.", "N/A"));
@@ -150,7 +165,9 @@ public class LoadDatamart {
             System.out.println("Dừng Export: Process trước đó chưa thành công. Không thực hiện export.");
             return;
         }
-
+        //5. Ghi record trong control.etl_log
+        //input: mess, status = "PS"
+        System.out.println("Ghi log etl_log thành công " + insertLogToETLLog("Process dump aggregate đang bắt đầu chạy ", "PS"));
         boolean overallSuccess = true;
         for (String tableName : tableNames) {
             try {
@@ -165,13 +182,19 @@ public class LoadDatamart {
         }
     }
 
-    //Dump ra aggregate csv
+    //Dump ra aggregate csv cho từng bảng
     public void exportSingleTableToCSV(String tableName) {
         String csvFileName = "dump_" + tableName + "_" + this.date + ".csv";
         String outputFile = outputPath + csvFileName;
         System.out.println("Bắt đầu export bảng: " + tableName);
 
         String query = "SELECT * FROM " + tableName;
+
+        File file = new File(outputFile);
+        if (file.exists()) {
+            boolean deleted = file.delete();
+            System.out.println("Deleted file " + outputFile + ": " + deleted);
+        }
 
         // tạo kết nối với db
         try (PreparedStatement pstmt = dataConn.prepareStatement(query);
@@ -206,11 +229,10 @@ public class LoadDatamart {
                 count++;
             }
 
-            // Cần đảm bảo file được ghi vào file_config có tên bảng chính xác
+            //7. Ghi record trong control.file_config
+            //input: tableName, outputFile, status = "RD"
             System.out.println("Ghi log file_config thành công " + insertLogToFileConfig(tableName, outputFile, "RD"));
             System.out.println("Hoàn tất export CSV tại: " + outputFile);
-            // *** ĐÃ XÓA closeConnectionDB() ***
-
         } catch (Exception e) {
             // Ghi log lỗi và ném RuntimeException để dừng quá trình Export
             System.out.println("Ghi log error_log thành công" + insertLogToErrorLog("Lỗi khi export CSV cho bảng " + tableName, pathFileError));
@@ -226,7 +248,7 @@ public class LoadDatamart {
         return "\"" + value + "\""; // bao quanh bởi "
     }
 
-    // Định nghĩa thứ tự Load (Tên bảng, Tên file CSV, Khóa chính (để kiểm tra sau Insert))
+    // 8.Lấy danh sách các file cần load trong control,file_config
     public List<String[]> loadOrder() {
         String sql = "SELECT file_name, file_source FROM file_config " +
                 "WHERE process_code = ? AND DATE_FORMAT(create_at_file, '%d%m%Y') = ? AND status = 'RD'";
@@ -262,13 +284,14 @@ public class LoadDatamart {
         }
     }
 
-    public boolean loadToDBMart() {
-        List<String[]> filesToLoad = loadOrder();
+    // load dữ liệu vào data mart
+    public boolean loadToDBMart(List<String[]> filesToLoad) {
         if (filesToLoad == null || filesToLoad.isEmpty()) {
             System.out.println("Không có file nào để nạp vào Data Mart.");
             return false;
         }
         try {
+            //9. Kết nối db.mart
             connectDBDT(DB_MART_URL, "Mart");
             dataConn.setAutoCommit(false);
             int totalRecordsLoaded = 0;
@@ -283,15 +306,21 @@ public class LoadDatamart {
 
                 if (recordsLoaded > 0) {
                     System.out.println("   Hoàn tất nạp " + recordsLoaded + " dòng cho " + tableName + ". Cập nhật status SC.");
+                    //12. Ghi record trong control.file_config
+                    //input: tableName, outputFile, status = "SC"
                     insertLogToFileConfig(tableName, filePath, "SC");
                 } else if (recordsLoaded == 0) {
                     System.out.println("   Hoàn tất nạp 0 dòng cho " + tableName + ". Cập nhật status SC.");
+                    //12. Ghi record trong control.file_config
+                    //input: tableName, outputFile, status = "SC"
                     insertLogToFileConfig(tableName, filePath, "SC");
                 } else { // recordsLoaded == -1 (Lỗi)
                     throw new RuntimeException("File " + filePath + " không có dữ liệu hoặc lỗi trong quá trình tải SQL.");
                 }
             }
             dataConn.commit();
+            //13. Gọi hàm ghi log trong db.control.etl_log
+            //Input: mess, status = "SC"
             insertLogToETLLog("Load Mart hoàn tất", "SC");
             System.out.println("Load Data Mart hoàn tất! Tổng số bản ghi được nạp: " + totalRecordsLoaded);
             return true;
@@ -311,7 +340,12 @@ public class LoadDatamart {
         }
     }
 
+    //11. Load dữ liệu từ file csv vào db.dataMart
     public int loadFileToTable(String tableName, String csvPath) throws SQLException {
+        //10. Ghi record trong control.file_config
+        //input: tableName, outputFile, status = "RN"
+        insertLogToFileConfig("mart_load " + tableName, csvPath, "RN");
+
         // Tên bảng tạm và bảng backup
         String tempTable = tableName + "_tmp";
         String backupTable = tableName + "_bak";
@@ -393,7 +427,7 @@ public class LoadDatamart {
             }
             e.printStackTrace();
             System.err.println(" LỖI LOAD TABLE: " + tableName);
-            insertLogToFileConfig("wh_load " + tableName, csvPath, "FL");
+            insertLogToFileConfig("mart_load " + tableName, csvPath, "FL");
             return -1;
         }
     }
@@ -456,12 +490,12 @@ public class LoadDatamart {
         }
     }
 
-    // Đóng kết nối control khi đã hoàn thành
+    // 15. Đóng kết nối db.control
     public void closeConnectionControl() throws SQLException {
         controlConn.close();
     }
 
-    // Đóng kết nối db cần sử dụng khi đã hoàn thành
+    //14. Đóng kết nối db.mart
     public void closeConnectionDB() throws SQLException {
         dataConn.close();
     }
@@ -492,7 +526,8 @@ public class LoadDatamart {
             main.connectDBDT(main.DB_WAREHOUSE_URL, "WH");
             main.exportTablesToCSV(tablesToExport);
 
-            main.loadToDBMart();
+            List<String[]> filesToLoad = main.loadOrder();
+            main.loadToDBMart(filesToLoad);
         } catch (Exception e) {
             System.err.println("\n--- LỖI TRONG QUÁ TRÌNH THỰC THI ---");
             e.printStackTrace();
