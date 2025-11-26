@@ -4,6 +4,8 @@ import com.opencsv.CSVReader;
 
 import java.io.*;
 import java.sql.*;
+import java.time.LocalDate;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -20,12 +22,22 @@ public class LoadToWarehouse {
     private String DB_PASS;
     private Connection connControl, connStaging, connWarehouse;
     private final int PROCESS_CODE = 6;
+    private static String currentDate = LocalDate.now().format(DateTimeFormatter.ofPattern("ddMMyyyy"));
     private static final String errorFilePath = "/DW/control/config_error/";
-
+    private String config_file_path;
 
     public static void main(String[] args) {
         LoadToWarehouse loadtowh = new LoadToWarehouse();
         // 1. Load config: đọc file cấu hình config XML để lấy thông tin cấu hình
+        for (String arg : args) { // Input: config_file_path
+            if (arg.startsWith("config_file_path=")) {
+                loadtowh.config_file_path = arg.substring("config_file_path=".length()).trim();
+                System.out.println("Using config file: " + loadtowh.config_file_path);
+            } else if (arg.startsWith("date=")) {
+                currentDate = arg.substring("date=".length()).trim();
+                System.out.println("Using specified date: " + currentDate);
+            }
+        }
         loadtowh.loadConfig();
         try {
             //2. Kết nối các database control, staging, warehouse
@@ -34,15 +46,17 @@ public class LoadToWarehouse {
             // 3. Kiểm tra etl_log trạng thái Process 5 (Transform) với status = "SU"
             if (loadtowh.checkStatusProcess()) {
                 System.out.println("Process 5 (Transform) hôm nay đã run thành công. Tiếp tục Process 6 (Load To Warehouse)");
+               // 4. Ghi record vào bảng etl_log: Process đang chạy
                 loadtowh.insertLogToETLLog("Process 6 Load Warehouse đang chạy ", "PS");
                 try {
-                    // 4.Xử lý và đối chiếu dữ liệu bảng clean và PreWH (Staging)
+                    // 5.Xử lý và đối chiếu dữ liệu bảng clean và PreWH (Staging)
                     loadtowh.processCleanToPreWH();
 
-                    // 5  Xuất dữ liệu bảng prewh, dim_brand, dim_location, dim_date (staging) ra CSV lưu vào "/DW/staging/export/"
+                    // 6  Xuất dữ liệu bảng prewh thành file  CSV lưu vào "/DW/staging/export/"
                     String filePathBrand = loadtowh.exportToCSV(loadtowh.connStaging, "dim_brand");
                     loadtowh.insertLogToFileConfig("stg_export dim_brand", filePathBrand, "RD");
 
+                    // 7  Xuất dữ liệu bảng dim thành file  CSV lưu vào "/DW/staging/export/"
                     String filePathLocation = loadtowh.exportToCSV(loadtowh.connStaging, "dim_location");
                     loadtowh.insertLogToFileConfig("stg_export dim_location", filePathLocation, "RD");
 
@@ -50,13 +64,15 @@ public class LoadToWarehouse {
                     loadtowh.insertLogToFileConfig("stg_export dim_date", filePathDate, "RD");
 
                     String filePathPreWH = loadtowh.exportToCSV(loadtowh.connStaging, "stg_gold_price_prewh");
+                    //8 Ghi record vào bảng file_config: Các file đã ready ( status = "RD")
                     loadtowh.insertLogToFileConfig("stg_export stg_gold_price_prewh", filePathPreWH, "RD");
 
-                    // 6. Load, đọc file csv vào bảng trong database warehouse
+                    // 9. Load, đọc file csv vào bảng tmp trong database warehouse
                         // Bảng dim_brand (db warehouse)
                     loadtowh.insertLogToFileConfig("wh_load dim_brand", filePathBrand, "RN");
                     try {
                         loadtowh.loadDimTable("dim_brand", filePathBrand);
+                        // 10 Ghi record vào bảng file_config: Các file đã thành công (status = "SC")
                         loadtowh.insertLogToFileConfig("wh_load dim_brand", filePathBrand, "SC");
                     } catch (RuntimeException e) {
                         loadtowh.insertLogToFileConfig("wh_load dim_brand", filePathBrand, "FL");
@@ -97,6 +113,7 @@ public class LoadToWarehouse {
                         throw e;
                     }
                     System.out.println("\n===== KẾT THÚC LOAD WAREHOUSE =====");
+                    // 11 Ghi record vào bảng etl_log: Process  thành công (status = "SC")
                     loadtowh.insertLogToETLLog("Process 6 Load Warehouse thành công ", "SC");
 
                 } catch (Exception er) {
@@ -118,7 +135,7 @@ public class LoadToWarehouse {
 //            loadtowh.insertLogToETLLog("Process 6 Load Warehouse thất bại ", "FL");
             System.exit(1);
         } finally {
-            // 7. Đóng kết nối các database
+            // 12. Đóng kết nối các database
             loadtowh.closeConnections();
         }
 
@@ -126,10 +143,7 @@ public class LoadToWarehouse {
 
     // 1. Load config: đọc file cấu hình config XML để lấy thông tin cấu hình
     public void loadConfig() {
-        File configFile = new File("/DW/control/config.xml");
-
-        // Ngày hiện tại theo định dạng ddMMyyyy
-        String currentDate = java.time.LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("ddMMyyyy"));
+        File configFile = new File(config_file_path);
 
         if (!configFile.exists()) {
             File errorFile = new File(errorFilePath + "process6_" + currentDate + "_load-config-config-error.txt");
@@ -191,6 +205,13 @@ public class LoadToWarehouse {
             connWarehouse = DriverManager.getConnection(DB_WAREHOUSE, DB_USER, DB_PASS);
             System.out.println("Kết nối db WAREOUSE thành công");
         } catch (Exception e) {
+            // Ghi lỗi vào file nếu không đọc được config hoặc thiếu giá trị
+            File errorFile = new File(errorFilePath + "process6_connectdb" + currentDate + "_load-config-read-error.txt");
+            try (BufferedWriter writer = new BufferedWriter(new FileWriter(errorFile))) {
+                writer.write("Lỗi đọc file config.xml cho Process 6: " + e.getMessage());
+            } catch (IOException ioEx) {
+                ioEx.printStackTrace();
+            }
             System.out.println("Error connect database: " + e.getMessage());
             throw new RuntimeException("Cannot connect databases", e);
         }
@@ -226,7 +247,7 @@ public class LoadToWarehouse {
         }
     }
 
-    // 4.Xử lý và đối chiếu dữ liệu bảng clean và PreWH (Staging)
+    // 5.Xử lý và đối chiếu dữ liệu bảng clean và PreWH (Staging)
     public void processCleanToPreWH() {
         try {
                 //Tắt Auto-commit để bắt đầu Transaction
@@ -515,6 +536,12 @@ public class LoadToWarehouse {
         );
         // Tạo tên file
         String outputFile = FILE_PATH_TO_WH + File.separator + tableName + "_" + dateString + ".csv";
+        // Xóa file csv cũ
+        File file = new File(outputFile);
+        if (file.exists()) {
+            boolean deleted = file.delete();
+            System.out.println("Deleted file " + outputFile + ": " + deleted);
+        }
         // Lấy toàn bộ bảng
         String sql = "SELECT * FROM " + tableName;
 
@@ -817,8 +844,8 @@ public class LoadToWarehouse {
 
             return affectedRows > 0;
         } catch (SQLException e) {
-            System.out.println("Lỗi khi insert vào error_log. Không thể ghi thêm log. ");
-            insertLogToErrorLog("Lỗi khi insert vào error_log. Không thể ghi thêm log.", "N/A");
+            System.out.println("Lỗi khi insert vào etl_log. Không thể ghi thêm log. ");
+            insertLogToErrorLog("Lỗi khi insert vào etl_log. Không thể ghi thêm log.", "N/A");
             System.out.println(e.getMessage());
             return false;
         }
